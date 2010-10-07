@@ -20,6 +20,8 @@ public class JsonLogger {
 	
 	private bool useDotNetHTTP;
 	
+	private bool stillDelivering;
+	
 	[System.Runtime.InteropServices.DllImport("__Internal")]
   	extern static private string _MakeHTTPPost(string url, string content);
 			
@@ -78,6 +80,9 @@ public class JsonLogger {
 	}
 	private void deliverOutstandingEvents()
 	{
+		if (stillDelivering) return;
+		
+		stillDelivering = true;
 		ArrayList events = popAllEvents();
 		if (events.Count > 0)
 		{
@@ -89,6 +94,7 @@ public class JsonLogger {
 		{
 			Debug.Log("No events to deliver");
 		}
+		stillDelivering = false;
 	}
 	
 	private ArrayList popAllEvents()
