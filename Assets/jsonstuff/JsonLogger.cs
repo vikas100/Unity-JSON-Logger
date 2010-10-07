@@ -19,6 +19,9 @@ public class JsonLogger {
 	private ArrayList states = new ArrayList();
 	
 	private bool useDotNetHTTP;
+	
+	[System.Runtime.InteropServices.DllImport("__Internal")]
+  	extern static private string _MakeHTTPPost(string url, string content);
 			
 	public JsonLogger(string url, bool useDotNetHTTP)
 	{
@@ -120,17 +123,17 @@ public class JsonLogger {
 	{
 		string ret;
 		
-		Debug.Log("\t\tMakeHTTPRequestAsJSON called with request: "+ requestString);
+		//Debug.Log("\t\tMakeHTTPRequestAsJSON called with request: "+ requestString);
 		
 		if (useDotNetHTTP){
-			Debug.Log("\t\t\tMaking Direct HTTP Request with body: "+requestString);
+			//Debug.Log("\t\t\tMaking Direct HTTP Request with body: "+requestString);
 			ret = MakeDirectHTTPRequestAsJSON(url, requestString, method);
 		}else{
-			Debug.Log("HTTP requests not implemented on this platform.");
-			ret = "ERROR";
+			//Debug.Log("\t\tMaking Objective-C HTTP Request...");
+			ret = _MakeHTTPPost(url, requestString);
 		}
 				
-		Debug.Log("!!!! http request returned: "+ ret);
+		//Debug.Log("!!!! http request returned: "+ ret);
 		return ret;
 	}
 		

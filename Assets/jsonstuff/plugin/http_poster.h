@@ -12,6 +12,7 @@
 @interface HTTPPoster : NSObject {
 }
 
-- (char *) sendHTTPPostToURL:(NSString *)url content:(NSString *)content;
+- (NSString *) sendHTTPPostToURL:(NSString *)url withContent:(NSString *)content;
+
 
 @end

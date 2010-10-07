@@ -6,86 +6,59 @@
 //  Copyright 2010 __MyCompanyName__. All rights reserved.
 //
 
-#import "blow_sensor.h"
+#import "http_poster.h"
 #import <stdio.h>
 
 
 @implementation HTTPPoster
-- (void) startListening{
-	NSURL *url = [NSURL fileURLWithPath:@"/dev/null"];
 
-	NSDictionary *settings = [NSDictionary dictionaryWithObjectsAndKeys:
-							  [NSNumber numberWithFloat: 44100.0],                 AVSampleRateKey,
-							  [NSNumber numberWithInt: kAudioFormatAppleLossless], AVFormatIDKey,
-							  [NSNumber numberWithInt: 2],                         AVNumberOfChannelsKey,
-							  [NSNumber numberWithInt: AVAudioQualityMax],         AVEncoderAudioQualityKey,
-							  nil];
-	
-	NSError *error;
-	
-	lowPassResults=0;
-	
-	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord error:NULL];
-	 
-	recorder = [[AVAudioRecorder alloc] initWithURL:url settings:settings error:&error];
-	
-	if (recorder) {
-		[recorder prepareToRecord];
-		recorder.meteringEnabled = YES;
-		[recorder record];
-		levelTimer = [NSTimer scheduledTimerWithTimeInterval: 0.03 target: self selector: @selector(levelTimerCallback:) userInfo: nil repeats: YES];
-		[NSTimer scheduledTimerWithTimeInterval: 1.0 target: self selector: @selector(keepTheAudioOnLockdownAndDoNotAllowUnityToScrewItUpTimerCallback:) userInfo: nil repeats: YES];
-		
-	} else{
-		printf("Error while setting up the recorder.\n");
-		NSLog([error description]);
-	}
+- (NSString *)sendHTTPPostToURL:(NSString *)url withContent:(NSString *)content{
+	NSData* requestContent = [NSData dataWithBytes: [content UTF8String] length: [content length]];
+	NSMutableURLRequest * urlRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
+	[urlRequest setHTTPMethod: @"POST"];
+	[urlRequest setValue:@"application/json; charset=utr-8" forHTTPHeaderField:@"Content-Type"];
+	[urlRequest setHTTPBody: requestContent];
+	NSData * returnData = [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:nil error:nil];
+	NSString * returnString = [[NSString alloc] initWithData:returnData encoding:NSUTF8StringEncoding]; 
+	return returnString;
 }
-
-//unity resets the audio category to a bad value on sleep
-- (void)keepTheAudioOnLockdownAndDoNotAllowUnityToScrewItUpTimerCallback:(NSTimer *)timer {
-	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord error:NULL];
-}
-
-
-- (void)levelTimerCallback:(NSTimer *)timer {
-	[recorder updateMeters];
-	
-	//NSLog(@"tick!\n");
-	
-	const double ALPHA = 0.05;
-	double peakPowerForChannel = pow(10, (0.05 * [recorder peakPowerForChannel:0]));
-	lowPassResults = ALPHA * peakPowerForChannel + (1.0 - ALPHA) * lowPassResults;	
-	
-	if (lowPassResults > 0.95)
-		NSLog(@"Mic blow detected");
-}
-
-- (double) getLastBlowForce {
-	return lowPassResults;
-}
-
 
 - (void)dealloc {
-	[levelTimer release];
-	[recorder release];
+
     [super dealloc];
 }
 
 @end
 
 	
-extern "C" void _MakeHTTPPost(NSString* url, NSString* content)
+extern "C" char* _MakeHTTPPost(char* c_url, char* c_content)
 {
+	NSString* objc_url = [[NSString stringWithUTF8String: c_url] retain];
+	NSString* objc_content = [[NSString stringWithUTF8String: c_content] retain];
 	NSString* objc_ret;
 	char* c_ret;
+	
+	//NSLog(@"In _MakeHTTPPost...");
+	//NSLog(objc_content);
+	//NSLog(@"^^^^^^^ content ^^^^^^^^");
 	HTTPPoster * poster = [[HTTPPoster alloc] init];
-	[poster autorelease];
 	
-	objc_ret = [poster sendHTTPPostToURL:url content:content]
-	c_ret = [objc_ret cStringWithEncoding:[NSString defaultCStringEncoding]];
+	//NSLog(@"About to send data to the poster");
+	objc_ret = [poster sendHTTPPostToURL:objc_url withContent:objc_content];
+	//NSLog(@"Converting poster return data to a char*");
+	const char* c_ret_const = [objc_ret UTF8String];
+	c_ret = (char*)malloc(strlen((char*)c_ret_const));
+	strcpy(c_ret, c_ret_const);
 	
+	//NSLog(@"Releaseing poster");
+	[poster release];
+	//NSLog(@"Releaseing objc_url");
+	[objc_url release];
+	//NSLog(@"Releaseing obcj_content");
+	[objc_content release];
+	//NSLog(@"Releaseing objc_ret");
 	[objc_ret release];	
+	//NSLog(@"Returning...");
 	return c_ret;	
 }
 
